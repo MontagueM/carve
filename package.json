@@ -2,14 +2,19 @@
   "name": "hardhat-project",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/keychain": "^1.4.4",
     "hardhat": "^2.22.17"
   },
   "dependencies": {
-    "dotenv": "^16.4.7"
+    "@openzeppelin/contracts": "^5.1.0",
+    "dotenv": "^16.4.7",
+    "keychain": "^1.5.0",
+    "keytar": "^7.9.0"
   },
   "scripts": {
     "bc:start:node": "npx hardhat node",
-    "bc:deploy:contract": "npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
+    "bc:deploy:contract:local": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
+    "bc:deploy:contract:somnia": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network somnia",
     "bc:compile": "npx hardhat compile && cp artifacts/contracts/carve.sol/carve.json frontend/src/contracts/"
   }
 }
