@@ -6,5 +6,10 @@
   },
   "dependencies": {
     "dotenv": "^16.4.7"
+  },
+  "scripts": {
+    "bc:start:node": "npx hardhat node",
+    "bc:deploy:contract": "npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
+    "bc:compile": "npx hardhat compile && cp artifacts/contracts/carve.sol/carve.json frontend/src/contracts/"
   }
 }

@@ -1,3 +1,5 @@
+import hre from "hardhat";
+
 async function main() {
     // We get the contract to deploy
     const MyContract = await hre.ethers.getContractFactory("MyContract");
