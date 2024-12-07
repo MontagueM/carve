@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ethers } from 'ethers';
 import {
     Container,
@@ -32,13 +32,13 @@ type Carving = {
     carvingId: number;
     message: string;
     address: string;
-    timestamp: string;
+    timestamp: number;
 };
 
 type Comment = {
     message: string;
     address: string;
-    timestamp: string;
+    timestamp: number;
 };
 
 function App() {
@@ -50,6 +50,7 @@ function App() {
     const [profileImageURL, setProfileImageURL] = useState<string>('');
     const [message, setMessage] = useState<string>('');
     const [carvings, setCarvings] = useState<Carving[]>([]);
+    const sortedCarvings = useMemo(() => carvings.sort((a, b) => b.timestamp - a.timestamp), [carvings]);
     const [showSetUsernameModal, setShowSetUsernameModal] = useState<boolean>(false);
     const [usernameInput, setUsernameInput] = useState<string>('');
     const [usernames, setUsernames] = useState<Map<string, string>>(new Map());
@@ -62,6 +63,8 @@ function App() {
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState<string>('');
 
+    const MAX_LENGTH = 32;
+
     useEffect(() => {
         async function init() {
             if (contract) return;
@@ -69,6 +72,7 @@ function App() {
             const tempProvider = new ethers.JsonRpcProvider("https://dream-rpc.somnia.network/");
             const tempContract = new ethers.Contract(CONTRACT_ADDRESS, carve.abi, tempProvider);
             setContract(tempContract);
+            console.log("Temp contract connected:", await tempContract.getAddress());
         }
 
         void init();
@@ -83,6 +87,8 @@ function App() {
             const contractWithSigner = new ethers.Contract(CONTRACT_ADDRESS, carve.abi, signer);
             setContract(contractWithSigner);
             setAccount(address);
+            console.log("Wallet connected:", address);
+            console.log("Contract connected:", await contractWithSigner.getAddress());
         } else {
             alert("Please install MetaMask!");
         }
@@ -95,10 +101,12 @@ function App() {
     useEffect(() => {
         async function internal() {
             if (!account) return;
-            const userExists = await fetchUserProfile(account);
-            if (!userExists) {
+            const userProfile = await fetchUserProfile(account);
+            if (!userProfile) {
                 setShowSetUsernameModal(true);
             } else {
+                setUsername(userProfile.username);
+                setBio(userProfile.bio);
                 void fetchMessages();
             }
         }
@@ -106,22 +114,26 @@ function App() {
     }, [account]);
 
     const fetchUserProfile = async (address: string) => {
-        if (!contract) return false;
+        if (!contract) return undefined;
+        console.log("Fetching profile for", address);
         const result = await contract.getUserProfile(address);
         const profile = {
             username: result[0],
             bio: result[1],
             profileImageURL: result[2],
         }
+        console.log("Profile fetched:", profile);
         if (profile.username === 0n) {
-            return false;
+            return undefined;
         }
-        const decodedUsername = decodeMessage(profile.username);
-        setUsernames((prev) => new Map(prev).set(address, decodedUsername));
-        setUsername(decodedUsername);
-        setBio(decodeMessage(profile.bio));
+        const decodedProfile = {
+            username: decodeMessage(profile.username),
+            bio: decodeMessage(profile.bio),
+            profileImageURL: profile.profileImageURL
+        };
+        setUsernames((prev) => new Map(prev).set(address, decodedProfile.username));
         setProfileImageURL(profile.profileImageURL);
-        return true;
+        return decodedProfile;
     };
 
     const encodeMessage = (msg: string): bigint => {
@@ -145,6 +157,7 @@ function App() {
 
     const postNewMessage = async () => {
         if (!message || !contract) return;
+
         const encoded = encodeMessage(message);
         await contract.createCarving(encoded);
         setMessage('');
@@ -193,7 +206,7 @@ function App() {
                 if (!usernames.has(address)) {
                     await fetchUserProfile(address);
                 }
-                const timestamp = new Date(Number(m[2]) * 1000).toLocaleString();
+                const timestamp = Number(m[2])*1000;
                 const carvingId = msgs.indexOf(m);
                 await fetchLikes(carvingId);
                 await fetchLikedStatus(carvingId);
@@ -239,12 +252,16 @@ function App() {
 
     const postComment = async () => {
         if (!newComment || !selectedCarving || !contract) return;
+        if (newComment.length > MAX_LENGTH) {
+            alert("Your etch exceeds the 32-character limit.");
+            return;
+        }
         // TODO: Integrate posting comment to contract
         // After success:
         setComments((prev) => [...prev, {
             message: newComment,
             address: account,
-            timestamp: new Date().toLocaleString()
+            timestamp: new Date().getTime()
         }]);
         setNewComment('');
     };
@@ -285,6 +302,9 @@ function App() {
         }
     });
 
+    const remainingCharsForMessage = MAX_LENGTH - message.length;
+    const remainingCharsForComment = MAX_LENGTH - newComment.length;
+
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
@@ -323,14 +343,20 @@ function App() {
                                     sx={{ input: { color: '#fff' }, textarea: { color: '#fff' } }}
                                 />
                             </Box>
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                                <Button variant="contained" sx={{ textTransform: 'none' }} onClick={postNewMessage}>Carve</Button>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', alignItems: 'center' }}>
+                                <Typography
+                                    variant="caption"
+                                    sx={{ color: remainingCharsForMessage < 0 ? 'red' : '#8899A6' }}
+                                >
+                                    {remainingCharsForMessage}
+                                </Typography>
+                                <Button variant="contained" sx={{ textTransform: 'none' }} onClick={postNewMessage} disabled={remainingCharsForMessage < 0}>Carve</Button>
                             </Box>
                         </Paper>
 
                         {/* Carvings (Tweets) List */}
                         <List>
-                            {carvings.map((carving, index) => (
+                            {sortedCarvings.map((carving, index) => (
                                 <Paper key={index} elevation={0} sx={{ marginBottom: '1rem', padding: '1rem' }}>
                                     <ListItem alignItems="flex-start" disableGutters>
                                         <ListItemAvatar>
@@ -343,7 +369,7 @@ function App() {
                                                         {usernames.get(carving.address) || carving.address.slice(0, 6) + '...' + carving.address.slice(-4)}
                                                     </Typography>
                                                     <Typography variant="body2" color="text.secondary">
-                                                        • {carving.timestamp}
+                                                        • {new Date(carving.timestamp).toLocaleString()}
                                                     </Typography>
                                                 </Box>
                                             }
@@ -364,7 +390,6 @@ function App() {
                                         {/* Placeholder Recarving (Retweet) action */}
                                         <IconButton color="secondary" onClick={() => alert('Recarving feature not implemented yet')}>
                                             <Repeat fontSize="small" />
-                                            {/* Add a count if you have one, e.g. <Typography variant="caption" sx={{ ml: 0.5 }}>2</Typography> */}
                                         </IconButton>
 
                                         <IconButton
@@ -451,7 +476,7 @@ function App() {
                                                         {usernames.get(c.address) || c.address.slice(0, 6) + '...' + c.address.slice(-4)}
                                                     </Typography>
                                                     <Typography variant="caption" color="text.secondary">
-                                                        • {c.timestamp}
+                                                        • {new Date(c.timestamp).toLocaleString()}
                                                     </Typography>
                                                 </Box>
                                                 <Typography variant="body2" color="text.primary" sx={{ marginLeft: '3rem', marginTop: '0.5rem' }}>
@@ -473,7 +498,13 @@ function App() {
                                         InputProps={{ style: { color: '#fff', borderColor: '#253341' } }}
                                     />
                                 </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography
+                                        variant="caption"
+                                        sx={{ color: remainingCharsForComment < 0 ? 'red' : '#8899A6' }}
+                                    >
+                                        {remainingCharsForComment}
+                                    </Typography>
                                     <Button variant="contained" sx={{ textTransform: 'none' }} onClick={postComment}>Etch</Button>
                                 </Box>
                             </>
