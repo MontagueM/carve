@@ -121,6 +121,12 @@ contract carve {
         return carvings.length;
     }
 
+    struct UserCarving {
+        uint256 message;
+        address carver;
+        uint256 timestamp;
+    }
+
     function getUserCarvings(address _user, uint256 start, uint256 count) public view returns (Carving[] memory) {
         uint256[] memory userCarvingIds = userCarvings[_user];
         require(start < userCarvingIds.length, "Start index out of bounds");

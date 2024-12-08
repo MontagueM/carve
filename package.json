@@ -15,6 +15,6 @@
     "bc:start:node": "npx hardhat node",
     "bc:deploy:contract:local": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
     "bc:deploy:contract:somnia": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network somnia",
-    "bc:compile": "npx hardhat compile && cp artifacts/contracts/carve.sol/carve.json frontend/src/contracts/"
+    "bc:compile": "npx hardhat compile && cp artifacts/contracts/carve.sol/carve.json frontend/app/contracts/"
   }
 }
