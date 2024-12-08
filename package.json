@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.1.0",
+    "@openzeppelin/hardhat-upgrades": "^3.7.0",
     "dotenv": "^16.4.7",
     "keychain": "^1.5.0",
     "keytar": "^7.9.0"
