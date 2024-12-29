@@ -14,11 +14,11 @@
     "keytar": "^7.9.0"
   },
   "scripts": {
-    "frontend:dev:local": "cd frontend && cross-env NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545/ NEXT_PUBLIC_CHAIN_ID=31337 npm run dev",
-    "frontend:dev:somnia": "cd frontend && cross-env NEXT_PUBLIC_RPC_URL=https://dream-rpc.somnia.network/ NEXT_PUBLIC_CHAIN_ID=50311 npm run dev",
+    "frontend:dev:local": "cd frontend && cross-env NEXT_PUBLIC_ENV=dev npm run dev",
+    "frontend:dev:somnia": "cd frontend && cross-env NEXT_PUBLIC_ENV=somnia npm run dev",
     "bc:start:node": "npx hardhat node",
-    "bc:deploy:contract:local": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
-    "bc:deploy:contract:somnia": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network somnia",
+    "bc:deploy:contract:local": "rm -rf ignition/deployments && npm run bc:compile && npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
+    "bc:deploy:contract:somnia": "rm -rf ignition/deployments && npm run bc:compile && npx hardhat ignition deploy ignition/modules/carve.ts --network somnia",
     "bc:compile": "npx hardhat compile && cp artifacts/contracts/carve.sol/carve.json frontend/app/contracts/"
   }
 }

@@ -1,3 +1,18 @@
-export const CONTRACT_ADDRESS = "0x95c4e23D6635a8B1E858d25516646AEf176BFe7a";
-export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL;
-export const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID;
+export const ENV = process.env.NEXT_PUBLIC_ENV;
+
+export const Dev = {
+  RPC_URL: "http://localhost:8545",
+  CHAIN_ID: 31337,
+  CONTRACT_ADDRESS: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+};
+
+export const Somnia = {
+  RPC_URL: "https://dream-rpc.somnia.network/",
+  CHAIN_ID: 50311,
+  CONTRACT_ADDRESS: "0x95c4e23D6635a8B1E858d25516646AEf176BFe7a",
+};
+
+export const RPC_URL = ENV === "dev" ? Dev.RPC_URL : Somnia.RPC_URL;
+export const CHAIN_ID = ENV === "dev" ? Dev.CHAIN_ID : Somnia.CHAIN_ID;
+export const CONTRACT_ADDRESS =
+  ENV === "dev" ? Dev.CONTRACT_ADDRESS : Somnia.CONTRACT_ADDRESS;

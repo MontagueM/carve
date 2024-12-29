@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.8; // >=0.8.8 recommended for user-defined value types
-
-    type CarvingId is uint256;
+    
+type CarvingId is uint256;
+import "hardhat/console.sol";
 
 contract carve {
     struct UserProfile {
@@ -101,6 +102,7 @@ contract carve {
     // ------------------------- Profile functions -------------------------
 
     function setUsername(string memory _username) public {
+        console.log("setUsername called with:", _username);
         require(bytes(_username).length <= 32, "Username must be 32 characters or less");
 
         if (_isNewUser(msg.sender)) {
@@ -113,6 +115,7 @@ contract carve {
         }
 
         userProfiles[msg.sender].username = _username;
+        console.log("Username set to:", _username);
     }
 
     function setBio(string memory _bio) public {

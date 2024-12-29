@@ -21,7 +21,7 @@ import {
 import { FavoriteBorder, Favorite, Repeat, ChatBubbleOutline, Person } from '@mui/icons-material';
 import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
 import carve from '../contracts/carve.json';
-import {CONTRACT_ADDRESS, RPC_URL} from "../config";
+import {CHAIN_ID, CONTRACT_ADDRESS, RPC_URL} from "../config";
 import { useEncodeDecode } from '../hooks/useEncodeDecode';
 import Link from 'next/link';
 import Skeleton from '@mui/material/Skeleton';
@@ -69,7 +69,7 @@ export default function ProfilePage() {
             let provider = new ethers.BrowserProvider((window as any).ethereum);
             await provider.send("eth_requestAccounts", []);
             let network = await provider.getNetwork();
-            const expectedChainId = 50311;
+            const expectedChainId = CHAIN_ID;
             if (Number(network.chainId) !== expectedChainId) {
                 try {
                     await provider.send("wallet_switchEthereumChain", [{ chainId: ethers.toQuantity(expectedChainId) }]);

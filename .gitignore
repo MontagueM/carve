@@ -18,3 +18,4 @@ ignition/deployments/chain-31337
 
 .next
 next-env.d.ts
+.idea
