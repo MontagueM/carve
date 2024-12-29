@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { ChatBubbleOutline, Repeat, FavoriteBorder, Favorite, Person } from '@mui/icons-material';
 import carve from './contracts/carve.json';
-import { CONTRACT_ADDRESS } from "./config";
+import {CONTRACT_ADDRESS, RPC_URL} from "./config";
 import {useEncodeDecode} from "@/app/hooks/useEncodeDecode";
 
 type UserProfile = {
@@ -246,8 +246,8 @@ function App() {
 
   useEffect(() => {
     async function init() {
-      if (contract) return;
-      const tempProvider = new ethers.JsonRpcProvider("https://dream-rpc.somnia.network/");
+      if (contract) return; 
+      const tempProvider = new ethers.JsonRpcProvider(RPC_URL);
       const tempContract = new ethers.Contract(CONTRACT_ADDRESS, carve.abi, tempProvider);
       setContract(tempContract);
     }

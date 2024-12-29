@@ -3,6 +3,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@types/keychain": "^1.4.4",
+    "cross-env": "^7.0.3",
     "hardhat": "^2.22.17"
   },
   "dependencies": {
@@ -13,6 +14,8 @@
     "keytar": "^7.9.0"
   },
   "scripts": {
+    "frontend:dev:local": "cd frontend && cross-env NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545/ NEXT_PUBLIC_CHAIN_ID=31337 npm run dev",
+    "frontend:dev:somnia": "cd frontend && cross-env NEXT_PUBLIC_RPC_URL=https://dream-rpc.somnia.network/ NEXT_PUBLIC_CHAIN_ID=50311 npm run dev",
     "bc:start:node": "npx hardhat node",
     "bc:deploy:contract:local": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
     "bc:deploy:contract:somnia": "rm -rf ignition/deployments && npx hardhat ignition deploy ignition/modules/carve.ts --network somnia",

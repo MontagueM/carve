@@ -1,13 +1,33 @@
-# Sample Hardhat Project
+# carve
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+carve is a solidity contract and frontend for an on-chain twitter.
 
-Try running some of the following tasks:
+you can see the frontend at https://montaguem.github.io/carve which runs on the [somnia testnet](https://somnia.network/).
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.ts
+the solidity contract runs the entire site from a single contract, storing all data in itself.
+
+would be interesting to try treating each new user as its own contract.
+
+## how to use
+
+start the local chain:
 ```
+npm run bc:start:node
+```
+
+deploy the carve contract:
+```
+npm run bc:deploy:contract:local
+```
+
+start the frontend:
+```
+npm run frontend:dev
+```
+
+
+to deploy the chain to somnia testnet:
+```
+npm run bc:deploy:chain:somnia
+```
+

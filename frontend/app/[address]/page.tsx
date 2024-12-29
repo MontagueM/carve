@@ -21,7 +21,7 @@ import {
 import { FavoriteBorder, Favorite, Repeat, ChatBubbleOutline, Person } from '@mui/icons-material';
 import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
 import carve from '../contracts/carve.json';
-import { CONTRACT_ADDRESS } from "../config";
+import {CONTRACT_ADDRESS, RPC_URL} from "../config";
 import { useEncodeDecode } from '../hooks/useEncodeDecode';
 import Link from 'next/link';
 import Skeleton from '@mui/material/Skeleton';
@@ -188,7 +188,7 @@ export default function ProfilePage() {
     useEffect(() => {
         async function init() {
             if (!contract) {
-                const tempProvider = new ethers.JsonRpcProvider("https://dream-rpc.somnia.network/");
+                const tempProvider = new ethers.JsonRpcProvider(RPC_URL);
                 const tempContract = new ethers.Contract(CONTRACT_ADDRESS, carve.abi, tempProvider);
                 setContract(tempContract);
             }
