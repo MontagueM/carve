@@ -3,7 +3,7 @@ export const ENV = process.env.NEXT_PUBLIC_ENV;
 export const Dev = {
   RPC_URL: "http://localhost:8545",
   CHAIN_ID: 31337,
-  CONTRACT_ADDRESS: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  CONTRACT_ADDRESS: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
 };
 
 export const Somnia = {

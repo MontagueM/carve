@@ -2,7 +2,7 @@
 
 carve is a solidity contract and frontend for an on-chain twitter.
 
-you can see the frontend at https://montaguem.github.io/carve which runs on the [somnia testnet](https://somnia.network/).
+you can see the frontend at https://montaguem.github.io/carve which runs on the [somnia devnet](https://somnia.network/).
 
 the solidity contract runs the entire site from a single contract, storing all data in itself.
 
@@ -30,7 +30,7 @@ npm run frontend:dev
 ```
 
 
-to deploy the chain to somnia testnet:
+to deploy the chain to somnia devnet:
 ```
 npm run bc:deploy:chain:somnia
 ```

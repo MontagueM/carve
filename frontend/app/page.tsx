@@ -16,12 +16,8 @@ import {
   Box,
   IconButton,
   Paper,
-  createTheme,
-  ThemeProvider,
-  CssBaseline,
   Skeleton,
   CircularProgress,
-  Link,
 } from "@mui/material";
 import {
   ChatBubbleOutline,
@@ -32,43 +28,15 @@ import {
 } from "@mui/icons-material";
 import carve from "./contracts/carve.json";
 import { CHAIN_ID, CONTRACT_ADDRESS, RPC_URL } from "./config";
-
-type UserProfile = {
-  createdAt: number;
-  username: string;
-  bio: string;
-  pfpURL: string;
-  backgroundURL: string;
-};
-
-enum CarvingType {
-  Carve = 0,
-  Quote = 1,
-  Recarve = 2,
-  Etch = 3,
-}
-
-type Carving = {
-  id: number;
-  carvingType: CarvingType;
-  carver: string;
-  message: string;
-  sentAt: number;
-  originalCarvingId: number;
-  hidden: boolean;
-};
-
-type Comment = {
-  message: string;
-  address: string;
-  timestamp: number;
-};
+import Link from "next/link";
+import useUserProfile from "@/hooks/useUserProfile";
+import { Carving, CarvingType } from "@/types";
 
 function App() {
   const [contract, setContract] = useState<ethers.Contract | undefined>(
     undefined,
   );
-  const [account, setAccount] = useState<string>("");
+  const [address, setAddress] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [bio, setBio] = useState<string>("");
   const [profileImageURL, setProfileImageURL] = useState<string>("");
@@ -78,11 +46,10 @@ function App() {
     useState<boolean>(false);
   const [setUsernameLoading, setSetUsernameLoading] = useState<boolean>(false);
   const [usernameInput, setUsernameInput] = useState<string>("");
-  const [usernames, setUsernames] = useState<Map<string, string>>(new Map());
   const [likes, setLikes] = useState<Map<number, number>>(new Map());
   const [likedCarvings, setLikedCarvings] = useState<Set<number>>(new Set());
   const [isLoadingCarvings, setIsLoadingCarvings] = useState<boolean>(false);
-  const [loadingAccount, setLoadingAccount] = useState(true);
+  const [loadingAddress, setLoadingAddress] = useState(true);
 
   // Comments (Etchings) Modal
   const [showCommentsModal, setShowCommentsModal] = useState<boolean>(false);
@@ -90,7 +57,9 @@ function App() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState<string>("");
 
-  const MAX_LENGTH = 32;
+  const MAX_LENGTH = 140;
+
+  const { fetchProfile, getProfile } = useUserProfile(contract, address);
 
   const sortedCarvings = useMemo(() => {
     return carvings.slice().sort((a, b) => b.sentAt - a.sentAt);
@@ -105,29 +74,6 @@ function App() {
     [newComment],
   );
 
-  const fetchUserProfile = useCallback(
-    async (address: string) => {
-      console.log("fetchUserProfile", address);
-      if (!contract) return undefined;
-      const result = await contract.getUserProfile(address);
-      console.log("result", result);
-      const profile = {
-        createdAt: Number(result[0]) * 1000,
-        username: result[1],
-        bio: result[2],
-        pfpURL: result[3],
-        backgroundURL: result[4],
-      };
-      if (profile.username === "") {
-        return undefined;
-      }
-      setUsernames((prev) => new Map(prev).set(address, profile.username));
-      setProfileImageURL(profile.pfpURL);
-      return profile;
-    },
-    [contract],
-  );
-
   const fetchLikes = useCallback(
     async (carvingId: number) => {
       if (!contract) return;
@@ -139,13 +85,13 @@ function App() {
 
   const fetchLikedStatus = useCallback(
     async (carvingId: number) => {
-      if (!contract || !account) return;
-      const liked = await contract.hasLikedCarving(account, carvingId);
+      if (!contract || !address) return;
+      const liked = await contract.hasLikedCarving(address, carvingId);
       if (liked) {
         setLikedCarvings((prev) => new Set(prev).add(carvingId));
       }
     },
-    [contract, account],
+    [contract, address],
   );
 
   const fetchMessages = useCallback(async () => {
@@ -159,40 +105,37 @@ function App() {
       return;
     }
 
-    const msgs = await contract.getCarvings(0, Number(count));
-    const decodedCarvings: Carving[] = msgs.map((m: any) => {
+    const carvingsResult = await contract.getCarvings(0, Number(count));
+    const allCarvings: Carving[] = carvingsResult.map((c: any) => {
       return {
-        id: Number(m[0]),
-        carvingType: m[1],
-        carver: m[2],
-        message: m[3],
-        sentAt: Number(m[4]) * 1000,
-        originalCarvingId: m[5],
-        hidden: m[6],
+        id: Number(c[0]),
+        originalCarvingId: Number(c[1]),
+        sentAt: Number(c[2]) * 1000,
+        carver: c[3],
+        carvingType: Number(c[4]) as CarvingType,
+        hidden: c[5],
+        message: c[6],
       };
     });
 
     // fetch all user profiles as required
-    const uniqueAddresses = new Set(decodedCarvings.map((c) => c.carver));
+    const uniqueAddresses = new Set(allCarvings.map((c) => c.carver));
 
     // together await all user profiles and carving likes/like status
-    const userProfilePromises =
-      Array.from(uniqueAddresses).map(fetchUserProfile);
-    const likesPromises = decodedCarvings.map((c) => fetchLikes(c.id));
-    const likedStatusPromises = decodedCarvings.map((c) =>
-      fetchLikedStatus(c.id),
-    );
+    const userProfilePromises = Array.from(uniqueAddresses).map(fetchProfile);
+    const likesPromises = allCarvings.map((c) => fetchLikes(c.id));
+    const likedStatusPromises = allCarvings.map((c) => fetchLikedStatus(c.id));
     await Promise.all([
       ...userProfilePromises,
       ...likesPromises,
       ...likedStatusPromises,
     ]);
 
-    setCarvings(decodedCarvings);
+    setCarvings(allCarvings);
     setIsLoadingCarvings(false);
-  }, [contract, fetchUserProfile, fetchLikes, fetchLikedStatus, usernames]);
+  }, [contract, fetchProfile, fetchLikes, fetchLikedStatus]);
 
-  const createAccount = useCallback(
+  const createAddress = useCallback(
     async (usernameInput: string) => {
       if (!contract) return false;
       try {
@@ -202,7 +145,7 @@ function App() {
         setUsername(usernameInput);
         return true;
       } catch (error) {
-        alert("An error occurred while creating the account.");
+        alert("An error occurred while creating the address.");
         console.error(error);
         return false;
       }
@@ -236,7 +179,7 @@ function App() {
         newSet.delete(carvingId);
         return newSet;
       });
-      fetchLikes(carvingId);
+      void fetchLikes(carvingId);
     },
     [contract, fetchLikes],
   );
@@ -265,19 +208,19 @@ function App() {
   const postComment = useCallback(async () => {
     if (!newComment || !selectedCarving || !contract) return;
     if (newComment.length > MAX_LENGTH) {
-      alert("Your etch exceeds the 32-character limit.");
+      alert(`Your etch exceeds the ${MAX_LENGTH}-character limit.`);
       return;
     }
-    setComments((prev) => [
-      ...prev,
-      {
-        message: newComment,
-        address: account,
-        timestamp: new Date().getTime(),
-      },
-    ]);
+    // setComments((prev) => [
+    //   ...prev,
+    //   {
+    //     message: newComment,
+    //     address: address,
+    //     timestamp: new Date().getTime(),
+    //   },
+    // ]);
     setNewComment("");
-  }, [newComment, selectedCarving, contract, account]);
+  }, [newComment, selectedCarving, contract, address]);
 
   const connectWallet = useCallback(async () => {
     if (window.ethereum) {
@@ -311,8 +254,8 @@ function App() {
         signer,
       );
       setContract(contractWithSigner);
-      setAccount(address);
-      setLoadingAccount(false);
+      setAddress(address);
+      setLoadingAddress(false);
     } else {
       alert("Please install MetaMask!");
     }
@@ -338,8 +281,8 @@ function App() {
 
   useEffect(() => {
     async function internal() {
-      if (!account) return;
-      const userProfile = await fetchUserProfile(account);
+      if (!address) return;
+      const userProfile = await fetchProfile(address);
       console.log("userProfile", userProfile);
       if (!userProfile) {
         setShowSetUsernameEntry(true);
@@ -350,140 +293,54 @@ function App() {
       }
     }
     void internal();
-  }, [account]);
+  }, [address]);
 
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode: "dark",
-          background: {
-            default: "#15202b",
-            paper: "#192734",
-          },
-          text: {
-            primary: "#fff",
-            secondary: "#8899A6",
-          },
-          primary: {
-            main: "#1DA1F2",
-          },
-          secondary: {
-            main: "#8899A6",
-          },
-        },
-        typography: {
-          fontFamily: "Segoe UI, Roboto, Helvetica, Arial, sans-serif",
-          body1: {
-            fontSize: "0.95rem",
-          },
-        },
-        components: {
-          MuiPaper: {
-            styleOverrides: {
-              root: {
-                backgroundColor: "#192734",
-              },
-            },
-          },
-        },
-      }),
-    [],
-  );
-
-  if (loadingAccount) {
+  if (loadingAddress) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Container
-          maxWidth="sm"
-          style={{ paddingTop: "1rem", textAlign: "center" }}
+      <Container
+        maxWidth="sm"
+        style={{ paddingTop: "1rem", textAlign: "center" }}
+      >
+        <Typography
+          variant="h4"
+          gutterBottom
+          style={{ fontWeight: "bold", color: "#fff" }}
         >
-          <Typography
-            variant="h4"
-            gutterBottom
-            style={{ fontWeight: "bold", color: "#fff" }}
-          >
-            carve
-          </Typography>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: "50vh",
-            }}
-          >
-            <Box sx={{ textAlign: "center" }}>
-              <Typography variant="h5" color="text.secondary" sx={{ mb: 2 }}>
-                Loading...
-              </Typography>
-              <CircularProgress />
-            </Box>
+          carve
+        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "50vh",
+          }}
+        >
+          <Box sx={{ textAlign: "center" }}>
+            <Typography variant="h5" color="text.secondary" sx={{ mb: 2 }}>
+              Loading...
+            </Typography>
+            <CircularProgress />
           </Box>
-        </Container>
-      </ThemeProvider>
+        </Box>
+      </Container>
     );
   }
 
   if (showSetUsernameEntry) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Container
-          maxWidth="sm"
-          style={{
-            paddingTop: "1rem",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          <Typography
-            variant="h4"
-            gutterBottom
-            style={{ fontWeight: "bold", color: "#fff", textAlign: "center" }}
-          >
-            carve
-          </Typography>
-          <TextField
-            label="Username"
-            value={usernameInput}
-            onChange={(e) => setUsernameInput(e.target.value)}
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ style: { color: "#8899A6" } }}
-            InputProps={{ style: { color: "#fff" } }}
-          />
-          <Button
-            variant="contained"
-            onClick={async () => {
-              setSetUsernameLoading(true);
-              const success = await createAccount(usernameInput);
-              setSetUsernameLoading(false);
-              if (success) {
-                setShowSetUsernameEntry(false);
-              }
-            }}
-            startIcon={
-              setUsernameLoading ? <CircularProgress size={20} /> : null
-            }
-            disabled={setUsernameLoading || !usernameInput.trim()}
-          >
-            Create user
-          </Button>
-        </Container>
-      </ThemeProvider>
-    );
-  }
-
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
+      <Container
+        maxWidth="sm"
+        style={{
+          paddingTop: "1rem",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          width: "100%",
+          height: "100%",
+        }}
+      >
         <Typography
           variant="h4"
           gutterBottom
@@ -491,328 +348,368 @@ function App() {
         >
           carve
         </Typography>
+        <TextField
+          label="Username"
+          value={usernameInput}
+          onChange={(e) => setUsernameInput(e.target.value)}
+          fullWidth
+          margin="normal"
+          InputLabelProps={{ style: { color: "#8899A6" } }}
+          InputProps={{ style: { color: "#fff" } }}
+        />
+        <Button
+          variant="contained"
+          onClick={async () => {
+            setSetUsernameLoading(true);
+            const success = await createAddress(usernameInput);
+            setSetUsernameLoading(false);
+            if (success) {
+              setShowSetUsernameEntry(false);
+            }
+          }}
+          startIcon={setUsernameLoading ? <CircularProgress size={20} /> : null}
+          disabled={setUsernameLoading || !usernameInput.trim()}
+        >
+          Create user
+        </Button>
+      </Container>
+    );
+  }
 
-        {!account ? (
+  return (
+    <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        style={{ fontWeight: "bold", color: "#fff", textAlign: "center" }}
+      >
+        carve
+      </Typography>
+
+      {!address ? (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: "2rem",
+          }}
+        >
+          <Button variant="contained" onClick={connectWallet}>
+            Connect Wallet
+          </Button>
+        </Box>
+      ) : (
+        <>
           <Box
             sx={{
               display: "flex",
-              justifyContent: "center",
-              marginTop: "2rem",
+              alignItems: "center",
+              gap: 2,
+              marginBottom: "1rem",
             }}
           >
-            <Button variant="contained" onClick={connectWallet}>
-              Connect Wallet
-            </Button>
+            <Avatar src={profileImageURL || ""}>
+              {!profileImageURL && <Person />}
+            </Avatar>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6">
+                {username || address.slice(0, 6) + "..." + address.slice(-4)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {bio}
+              </Typography>
+            </Box>
           </Box>
-        ) : (
-          <>
+
+          <Paper sx={{ padding: "1rem", marginBottom: "1rem" }} elevation={0}>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <Avatar src={profileImageURL || ""} />
+              <TextField
+                variant="outlined"
+                fullWidth
+                multiline
+                placeholder="What's happening?"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                InputProps={{
+                  style: { color: "#fff", borderColor: "#253341" },
+                }}
+                sx={{ input: { color: "#fff" }, textarea: { color: "#fff" } }}
+              />
+            </Box>
             <Box
               sx={{
                 display: "flex",
+                justifyContent: "space-between",
+                marginTop: "0.5rem",
                 alignItems: "center",
-                gap: 2,
-                marginBottom: "1rem",
               }}
             >
-              <Avatar src={profileImageURL || ""}>
-                {!profileImageURL && <Person />}
-              </Avatar>
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="h6">
-                  {username || account.slice(0, 6) + "..." + account.slice(-4)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {bio}
-                </Typography>
-              </Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: remainingCharsForMessage < 0 ? "red" : "#8899A6",
+                }}
+              >
+                {remainingCharsForMessage}
+              </Typography>
+              <Button
+                variant="contained"
+                sx={{ textTransform: "none" }}
+                onClick={postNewMessage}
+                disabled={remainingCharsForMessage < 0}
+              >
+                Carve
+              </Button>
             </Box>
+          </Paper>
 
-            <Paper sx={{ padding: "1rem", marginBottom: "1rem" }} elevation={0}>
+          {isLoadingCarvings ? (
+            <List>
+              {[...Array(5)].map((_, i) => (
+                <Paper
+                  key={i}
+                  elevation={0}
+                  sx={{ marginBottom: "1rem", padding: "1rem" }}
+                >
+                  <Box
+                    sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}
+                  >
+                    <Skeleton variant="circular" width={40} height={40} />
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Skeleton variant="text" width="30%" />
+                      <Skeleton variant="text" width="80%" />
+                      <Skeleton variant="text" width="60%" />
+                    </Box>
+                  </Box>
+                </Paper>
+              ))}
+            </List>
+          ) : (
+            <List>
+              {sortedCarvings.map((carving, index) => (
+                <Paper
+                  key={index}
+                  elevation={0}
+                  sx={{ marginBottom: "1rem", padding: "1rem" }}
+                >
+                  <ListItem alignItems="flex-start" disableGutters>
+                    <ListItemAvatar>
+                      <Avatar src={profileImageURL || ""} />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                          }}
+                        >
+                          <Link
+                            href={`/user?address=${carving.carver}`}
+                            style={{
+                              textDecoration: "none",
+                              color: "#1DA1F2",
+                            }}
+                          >
+                            <Typography
+                              variant="body1"
+                              sx={{ fontWeight: "bold", color: "#1DA1F2" }}
+                            >
+                              {getProfile(carving.carver)?.username ||
+                                carving.carver.slice(0, 6) +
+                                  "..." +
+                                  carving.carver.slice(-4)}
+                            </Typography>
+                          </Link>
+                          <Typography variant="body2" color="text.secondary">
+                            • {new Date(carving.sentAt).toLocaleString()}
+                          </Typography>
+                        </Box>
+                      }
+                      secondary={
+                        <Typography
+                          variant="body1"
+                          color="text.primary"
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {carving.message}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginTop: "0.5rem",
+                    }}
+                  >
+                    <IconButton
+                      color="secondary"
+                      onClick={() => openCommentsModal(carving)}
+                    >
+                      <ChatBubbleOutline fontSize="small" />
+                    </IconButton>
+
+                    <IconButton
+                      color="secondary"
+                      onClick={() =>
+                        alert("Recarving feature not implemented yet")
+                      }
+                    >
+                      <Repeat fontSize="small" />
+                    </IconButton>
+
+                    <IconButton
+                      color="secondary"
+                      onClick={() =>
+                        likedCarvings.has(carving.id)
+                          ? unlikeCarving(carving.id)
+                          : likeCarving(carving.id)
+                      }
+                    >
+                      {likedCarvings.has(carving.id) ? (
+                        <Favorite
+                          fontSize="small"
+                          style={{ color: "#E0245E" }}
+                        />
+                      ) : (
+                        <FavoriteBorder fontSize="small" />
+                      )}
+                      <Typography
+                        variant="caption"
+                        sx={{ ml: 0.5, color: "#fff" }}
+                      >
+                        {likes.get(carving.id) || 0}
+                      </Typography>
+                    </IconButton>
+                  </Box>
+                </Paper>
+              ))}
+            </List>
+          )}
+        </>
+      )}
+
+      <Modal open={showCommentsModal} onClose={closeCommentsModal}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 1,
+            width: "100%",
+            maxWidth: "600px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          {selectedCarving && (
+            <>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: "bold", color: "#fff" }}
+              >
+                Etchings on "{selectedCarving.message}"
+              </Typography>
+              <Box
+                sx={{
+                  overflowY: "auto",
+                  maxHeight: "300px",
+                  border: "1px solid #253341",
+                  borderRadius: 1,
+                  padding: "1rem",
+                }}
+              >
+                {comments.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No etchings yet. Be the first to etch!
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Comments will appear here.
+                  </Typography>
+                  // comments.map((c, i) => (
+                  //   <Box key={i} sx={{ marginBottom: "1rem" }}>
+                  //     <Box
+                  //       sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                  //     >
+                  //       <Avatar />
+                  //       <Typography
+                  //         variant="body1"
+                  //         sx={{ fontWeight: "bold", color: "#fff" }}
+                  //       >
+                  //         {getProfile(c.address)?.username ||
+                  //           c.address.slice(0, 6) + "..." + c.address.slice(-4)}
+                  //       </Typography>
+                  //       <Typography variant="caption" color="text.secondary">
+                  //         • {new Date(c.timestamp).toLocaleString()}
+                  //       </Typography>
+                  //     </Box>
+                  //     <Typography
+                  //       variant="body2"
+                  //       color="text.primary"
+                  //       sx={{ marginLeft: "3rem", marginTop: "0.5rem" }}
+                  //     >
+                  //       {c.message}
+                  //     </Typography>
+                  //   </Box>
+                  // ))
+                )}
+              </Box>
               <Box sx={{ display: "flex", gap: 2 }}>
                 <Avatar src={profileImageURL || ""} />
                 <TextField
                   variant="outlined"
                   fullWidth
                   multiline
-                  placeholder="What's happening?"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Etch your reply"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
                   InputProps={{
                     style: { color: "#fff", borderColor: "#253341" },
                   }}
-                  sx={{ input: { color: "#fff" }, textarea: { color: "#fff" } }}
                 />
               </Box>
               <Box
                 sx={{
                   display: "flex",
                   justifyContent: "space-between",
-                  marginTop: "0.5rem",
                   alignItems: "center",
                 }}
               >
                 <Typography
                   variant="caption"
                   sx={{
-                    color: remainingCharsForMessage < 0 ? "red" : "#8899A6",
+                    color: remainingCharsForComment < 0 ? "red" : "#8899A6",
                   }}
                 >
-                  {remainingCharsForMessage}
+                  {remainingCharsForComment}
                 </Typography>
                 <Button
                   variant="contained"
                   sx={{ textTransform: "none" }}
-                  onClick={postNewMessage}
-                  disabled={remainingCharsForMessage < 0}
+                  onClick={postComment}
                 >
-                  Carve
+                  Etch
                 </Button>
               </Box>
-            </Paper>
-
-            {isLoadingCarvings ? (
-              <List>
-                {[...Array(5)].map((_, i) => (
-                  <Paper
-                    key={i}
-                    elevation={0}
-                    sx={{ marginBottom: "1rem", padding: "1rem" }}
-                  >
-                    <Box
-                      sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}
-                    >
-                      <Skeleton variant="circular" width={40} height={40} />
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Skeleton variant="text" width="30%" />
-                        <Skeleton variant="text" width="80%" />
-                        <Skeleton variant="text" width="60%" />
-                      </Box>
-                    </Box>
-                  </Paper>
-                ))}
-              </List>
-            ) : (
-              <List>
-                {sortedCarvings.map((carving, index) => (
-                  <Paper
-                    key={index}
-                    elevation={0}
-                    sx={{ marginBottom: "1rem", padding: "1rem" }}
-                  >
-                    <ListItem alignItems="flex-start" disableGutters>
-                      <ListItemAvatar>
-                        <Avatar src={profileImageURL || ""} />
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Link
-                              href={`/${carving.carver}`}
-                              style={{
-                                textDecoration: "none",
-                                color: "#1DA1F2",
-                              }}
-                            >
-                              <Typography
-                                variant="body1"
-                                sx={{ fontWeight: "bold", color: "#1DA1F2" }}
-                              >
-                                {usernames.get(carving.carver) ||
-                                  carving.carver.slice(0, 6) +
-                                    "..." +
-                                    carving.carver.slice(-4)}
-                              </Typography>
-                            </Link>
-                            <Typography variant="body2" color="text.secondary">
-                              • {new Date(carving.sentAt).toLocaleString()}
-                            </Typography>
-                          </Box>
-                        }
-                        secondary={
-                          <Typography
-                            variant="body1"
-                            color="text.primary"
-                            style={{ whiteSpace: "pre-wrap" }}
-                          >
-                            {carving.message}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginTop: "0.5rem",
-                      }}
-                    >
-                      <IconButton
-                        color="secondary"
-                        onClick={() => openCommentsModal(carving)}
-                      >
-                        <ChatBubbleOutline fontSize="small" />
-                      </IconButton>
-
-                      <IconButton
-                        color="secondary"
-                        onClick={() =>
-                          alert("Recarving feature not implemented yet")
-                        }
-                      >
-                        <Repeat fontSize="small" />
-                      </IconButton>
-
-                      <IconButton
-                        color="secondary"
-                        onClick={() =>
-                          likedCarvings.has(carving.id)
-                            ? unlikeCarving(carving.id)
-                            : likeCarving(carving.id)
-                        }
-                      >
-                        {likedCarvings.has(carving.id) ? (
-                          <Favorite
-                            fontSize="small"
-                            style={{ color: "#E0245E" }}
-                          />
-                        ) : (
-                          <FavoriteBorder fontSize="small" />
-                        )}
-                        <Typography
-                          variant="caption"
-                          sx={{ ml: 0.5, color: "#fff" }}
-                        >
-                          {likes.get(carving.id) || 0}
-                        </Typography>
-                      </IconButton>
-                    </Box>
-                  </Paper>
-                ))}
-              </List>
-            )}
-          </>
-        )}
-
-        <Modal open={showCommentsModal} onClose={closeCommentsModal}>
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              bgcolor: "background.paper",
-              boxShadow: 24,
-              p: 4,
-              borderRadius: 1,
-              width: "100%",
-              maxWidth: "600px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            {selectedCarving && (
-              <>
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: "bold", color: "#fff" }}
-                >
-                  Etchings on "{selectedCarving.message}"
-                </Typography>
-                <Box
-                  sx={{
-                    overflowY: "auto",
-                    maxHeight: "300px",
-                    border: "1px solid #253341",
-                    borderRadius: 1,
-                    padding: "1rem",
-                  }}
-                >
-                  {comments.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">
-                      No etchings yet. Be the first to etch!
-                    </Typography>
-                  ) : (
-                    comments.map((c, i) => (
-                      <Box key={i} sx={{ marginBottom: "1rem" }}>
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                        >
-                          <Avatar />
-                          <Typography
-                            variant="body1"
-                            sx={{ fontWeight: "bold", color: "#fff" }}
-                          >
-                            {usernames.get(c.address) ||
-                              c.address.slice(0, 6) +
-                                "..." +
-                                c.address.slice(-4)}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            • {new Date(c.timestamp).toLocaleString()}
-                          </Typography>
-                        </Box>
-                        <Typography
-                          variant="body2"
-                          color="text.primary"
-                          sx={{ marginLeft: "3rem", marginTop: "0.5rem" }}
-                        >
-                          {c.message}
-                        </Typography>
-                      </Box>
-                    ))
-                  )}
-                </Box>
-                <Box sx={{ display: "flex", gap: 2 }}>
-                  <Avatar src={profileImageURL || ""} />
-                  <TextField
-                    variant="outlined"
-                    fullWidth
-                    multiline
-                    placeholder="Etch your reply"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    InputProps={{
-                      style: { color: "#fff", borderColor: "#253341" },
-                    }}
-                  />
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: remainingCharsForComment < 0 ? "red" : "#8899A6",
-                    }}
-                  >
-                    {remainingCharsForComment}
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    sx={{ textTransform: "none" }}
-                    onClick={postComment}
-                  >
-                    Etch
-                  </Button>
-                </Box>
-              </>
-            )}
-          </Box>
-        </Modal>
-      </Container>
-    </ThemeProvider>
+            </>
+          )}
+        </Box>
+      </Modal>
+    </Container>
   );
 }
 

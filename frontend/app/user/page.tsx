@@ -1,0 +1,490 @@
+"use client";
+
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { ethers } from "ethers";
+import {
+  Container,
+  Typography,
+  Avatar,
+  Box,
+  Paper,
+  Tab,
+  Tabs,
+  Button,
+  TextField,
+  IconButton,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+} from "@mui/material";
+import {
+  FavoriteBorder,
+  Favorite,
+  Repeat,
+  ChatBubbleOutline,
+  Person,
+} from "@mui/icons-material";
+import carve from "../contracts/carve.json";
+import { CHAIN_ID, CONTRACT_ADDRESS, RPC_URL } from "../config";
+import Link from "next/link";
+import Skeleton from "@mui/material/Skeleton";
+import useUserProfile from "@/hooks/useUserProfile";
+import { useSearchParams } from "next/navigation";
+import { Carving, CarvingType } from "@/types";
+
+export default function ProfilePage() {
+  const searchParams = useSearchParams();
+  const address = searchParams.get("address") ?? "";
+
+  const [contract, setContract] = useState<ethers.Contract | undefined>(
+    undefined,
+  );
+  const [account, setAccount] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [bio, setBio] = useState<string>("");
+  const [profileImageURL, setProfileImageURL] = useState<string>("");
+  const [carvings, setCarvings] = useState<Carving[]>([]);
+  const [tab, setTab] = useState<number>(0);
+  const [likes, setLikes] = useState<Map<number, number>>(new Map());
+  const [likedCarvings, setLikedCarvings] = useState<Set<number>>(new Set());
+  const [isLoadingCarvings, setIsLoadingCarvings] = useState<boolean>(false);
+
+  const [editUsername, setEditUsername] = useState<string>("");
+  const [editBio, setEditBio] = useState<string>("");
+  const [editPfpURL, setEditPfpURL] = useState<string>("");
+
+  const { fetchProfile, getProfile, profile } = useUserProfile(
+    contract,
+    address,
+  );
+
+  const connectWallet = useCallback(async () => {
+    if ((window as any).ethereum) {
+      let provider = new ethers.BrowserProvider((window as any).ethereum);
+      await provider.send("eth_requestAccounts", []);
+      let network = await provider.getNetwork();
+      const expectedChainId = CHAIN_ID;
+      if (Number(network.chainId) !== expectedChainId) {
+        try {
+          await provider.send("wallet_switchEthereumChain", [
+            { chainId: ethers.toQuantity(expectedChainId) },
+          ]);
+        } catch (switchError) {
+          alert(
+            "Please switch to the Somnia chain in your wallet to use carve.",
+          );
+          console.error("Failed to switch network", switchError);
+          return;
+        }
+      }
+      provider = new ethers.BrowserProvider((window as any).ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      const contractWithSigner = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        carve.abi,
+        signer,
+      );
+      setContract(contractWithSigner);
+      setAccount(address);
+    } else {
+      alert("Please install MetaMask!");
+    }
+  }, []);
+
+  const fetchUserCarvings = useCallback(async () => {
+    if (!contract || !address) {
+      return;
+    }
+    setIsLoadingCarvings(true);
+
+    const carvingCount = await contract.getUserCarvingsCount(address);
+    if (carvingCount == 0) {
+      setIsLoadingCarvings(false);
+      return;
+    }
+
+    const userCarvingsResult = await contract.getUserCarvings(
+      address,
+      0,
+      carvingCount,
+    );
+    const userCarvings: Carving[] = userCarvingsResult.map((c: any) => {
+      return {
+        id: Number(c[0]),
+        originalCarvingId: Number(c[1]),
+        sentAt: Number(c[2]) * 1000,
+        carver: c[3],
+        carvingType: Number(c[4]) as CarvingType,
+        hidden: c[5],
+        message: c[6],
+      };
+    });
+
+    // Fetch likes
+    await Promise.all(
+      userCarvings.map(async (c) => {
+        console.log(c);
+        const count = await contract.getLikesCount(c.id);
+        setLikes((prev) => new Map(prev).set(c.id, Number(count)));
+        if (account) {
+          const liked = await contract.hasLikedCarving(account, c.id);
+          if (liked) {
+            setLikedCarvings((prev) => new Set(prev).add(c.id));
+          }
+        }
+      }),
+    );
+
+    setCarvings(userCarvings);
+    setIsLoadingCarvings(false);
+  }, [contract, address, fetchProfile, account]);
+
+  const isMyProfile = useMemo(() => {
+    return (
+      account && address && account.toLowerCase() === address.toLowerCase()
+    );
+  }, [account, address]);
+
+  const updateUsername = useCallback(async () => {
+    if (!contract || !editUsername) return;
+    await contract.setUsername(editUsername);
+    setUsername(editUsername);
+  }, [contract, editUsername]);
+
+  const updateBio = useCallback(async () => {
+    if (!contract) return;
+    await contract.setBio(editBio);
+    setBio(editBio);
+  }, [contract, editBio]);
+
+  const updatePfp = useCallback(async () => {
+    if (!contract) return;
+    await contract.setPfpURL(editPfpURL);
+    setProfileImageURL(editPfpURL);
+  }, [contract, editPfpURL]);
+
+  const likeCarving = useCallback(
+    async (carvingId: number) => {
+      if (!contract) return;
+      await contract.likeCarving(carvingId);
+      setLikedCarvings((prev) => new Set(prev).add(carvingId));
+      const count = await contract.getLikesCount(carvingId);
+      setLikes((prev) => new Map(prev).set(carvingId, Number(count)));
+    },
+    [contract],
+  );
+
+  const unlikeCarving = useCallback(
+    async (carvingId: number) => {
+      if (!contract) return;
+      await contract.unlikeCarving(carvingId);
+      setLikedCarvings((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(carvingId);
+        return newSet;
+      });
+      const count = await contract.getLikesCount(carvingId);
+      setLikes((prev) => new Map(prev).set(carvingId, Number(count)));
+    },
+    [contract],
+  );
+
+  useEffect(() => {
+    async function init() {
+      if (!contract) {
+        const tempProvider = new ethers.JsonRpcProvider(RPC_URL);
+        const tempContract = new ethers.Contract(
+          CONTRACT_ADDRESS,
+          carve.abi,
+          tempProvider,
+        );
+        setContract(tempContract);
+      }
+    }
+    void init();
+  }, [contract]);
+
+  useEffect(() => {
+    void connectWallet();
+  }, [connectWallet]);
+
+  useEffect(() => {
+    async function loadProfile() {
+      if (!contract || !address) return;
+      const profile = await fetchProfile(address);
+      if (profile) {
+        setUsername(profile.username);
+        setBio(profile.bio);
+        setProfileImageURL(profile.pfpURL);
+      }
+    }
+    void loadProfile();
+  }, [contract, address, fetchProfile]);
+
+  useEffect(() => {
+    if (contract && address) {
+      void fetchUserCarvings();
+    }
+  }, [contract, address, fetchUserCarvings]);
+
+  const sortedCarvings = useMemo(() => {
+    return carvings.slice().sort((a, b) => b.sentAt - a.sentAt);
+  }, [carvings]);
+
+  if (!profile?.username) {
+    return (
+      <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
+        User does not exist.
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
+      {(!contract || !address) && (
+        <Typography variant="h6">Loading...</Typography>
+      )}
+      {address && (
+        <>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              marginBottom: "1rem",
+            }}
+          >
+            <Avatar src={profileImageURL || ""}>
+              {!profileImageURL && <Person />}
+            </Avatar>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6">
+                {username || address.slice(0, 6) + "..." + address.slice(-4)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {bio}
+              </Typography>
+            </Box>
+          </Box>
+
+          {isMyProfile && (
+            <Paper sx={{ p: 2, mb: 2 }} elevation={0}>
+              <Typography variant="h6">Edit Profile</Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                  mt: 1,
+                }}
+              >
+                <TextField
+                  label="New Username"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  InputProps={{ style: { color: "#fff" } }}
+                  InputLabelProps={{ style: { color: "#8899A6" } }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={updateUsername}
+                  disabled={!editUsername}
+                >
+                  Update Username
+                </Button>
+
+                <TextField
+                  label="New Bio"
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  InputProps={{ style: { color: "#fff" } }}
+                  InputLabelProps={{ style: { color: "#8899A6" } }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={updateBio}
+                  disabled={!editBio}
+                >
+                  Update Bio
+                </Button>
+
+                <TextField
+                  label="New PFP URL"
+                  value={editPfpURL}
+                  onChange={(e) => setEditPfpURL(e.target.value)}
+                  InputProps={{ style: { color: "#fff" } }}
+                  InputLabelProps={{ style: { color: "#8899A6" } }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={updatePfp}
+                  disabled={!editPfpURL}
+                >
+                  Update PFP
+                </Button>
+              </Box>
+            </Paper>
+          )}
+
+          <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+            <Tabs value={tab} onChange={(_e, val) => setTab(val)}>
+              <Tab label="Carvings" />
+              {/* Future: <Tab label="Recarves" /> */}
+            </Tabs>
+          </Box>
+
+          {tab === 0 && (
+            <>
+              {isLoadingCarvings ? (
+                <List>
+                  {[...Array(5)].map((_, i) => (
+                    <Paper
+                      key={i}
+                      elevation={0}
+                      sx={{ marginBottom: "1rem", padding: "1rem" }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 2,
+                        }}
+                      >
+                        <Skeleton variant="circular" width={40} height={40} />
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Skeleton variant="text" width="30%" />
+                          <Skeleton variant="text" width="80%" />
+                          <Skeleton variant="text" width="60%" />
+                        </Box>
+                      </Box>
+                    </Paper>
+                  ))}
+                </List>
+              ) : (
+                <List>
+                  {sortedCarvings.map((carving) => (
+                    <Paper
+                      key={carving.id}
+                      elevation={0}
+                      sx={{ marginBottom: "1rem", padding: "1rem" }}
+                    >
+                      <ListItem alignItems="flex-start" disableGutters>
+                        <ListItemAvatar>
+                          <Avatar />
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
+                              <Link
+                                href={`/${carving.carver}`}
+                                style={{
+                                  textDecoration: "none",
+                                  color: "#1DA1F2",
+                                }}
+                              >
+                                <Typography
+                                  variant="body1"
+                                  sx={{
+                                    fontWeight: "bold",
+                                    color: "#1DA1F2",
+                                  }}
+                                >
+                                  {getProfile(carving.carver)?.username ||
+                                    carving.carver.slice(0, 6) +
+                                      "..." +
+                                      carving.carver.slice(-4)}
+                                </Typography>
+                              </Link>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                • {new Date(carving.sentAt).toLocaleString()}
+                              </Typography>
+                            </Box>
+                          }
+                          secondary={
+                            <Typography
+                              variant="body1"
+                              color="text.primary"
+                              style={{ whiteSpace: "pre-wrap" }}
+                            >
+                              {carving.message}
+                            </Typography>
+                          }
+                        />
+                      </ListItem>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginTop: "0.5rem",
+                        }}
+                      >
+                        <IconButton
+                          color="secondary"
+                          onClick={() => alert("Comments not implemented here")}
+                        >
+                          <ChatBubbleOutline fontSize="small" />
+                        </IconButton>
+
+                        <IconButton
+                          color="secondary"
+                          onClick={() =>
+                            alert("Recarving feature not implemented yet")
+                          }
+                        >
+                          <Repeat fontSize="small" />
+                        </IconButton>
+
+                        <IconButton
+                          color="secondary"
+                          onClick={() =>
+                            likedCarvings.has(carving.id)
+                              ? unlikeCarving(carving.id)
+                              : likeCarving(carving.id)
+                          }
+                        >
+                          {likedCarvings.has(carving.id) ? (
+                            <Favorite
+                              fontSize="small"
+                              style={{ color: "#E0245E" }}
+                            />
+                          ) : (
+                            <FavoriteBorder fontSize="small" />
+                          )}
+                          <Typography
+                            variant="caption"
+                            sx={{ ml: 0.5, color: "#fff" }}
+                          >
+                            {likes.get(carving.id) || 0}
+                          </Typography>
+                        </IconButton>
+                      </Box>
+                    </Paper>
+                  ))}
+                </List>
+              )}
+            </>
+          )}
+
+          {tab === 1 && (
+            <Typography variant="body1">
+              Recarves not implemented yet.
+            </Typography>
+          )}
+        </>
+      )}
+    </Container>
+  );
+}
