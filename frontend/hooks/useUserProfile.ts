@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { ethers } from "ethers";
+import { useWallet } from "@/context/WalletProvider";
 
 export type UserProfile = {
   createdAt: number;
@@ -9,11 +9,9 @@ export type UserProfile = {
   backgroundURL: string;
 };
 
-function useUserProfile(
-  contract: ethers.Contract | undefined,
-  userAddress: string,
-) {
+function useUserProfile() {
   const profiles = useRef(new Map<string, UserProfile>());
+  const { contract, address: userAddress } = useWallet();
 
   const fetchProfile = useCallback(
     async (address: string) => {

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { ethers } from "ethers";
 import {
   Container,
   Button,
@@ -26,17 +25,12 @@ import {
   Favorite,
   Person,
 } from "@mui/icons-material";
-import carve from "./contracts/carve.json";
-import { CHAIN_ID, CONTRACT_ADDRESS, RPC_URL } from "./config";
 import Link from "next/link";
 import useUserProfile from "@/hooks/useUserProfile";
 import { Carving, CarvingType } from "@/types";
+import { useWallet } from "@/context/WalletProvider";
 
 function App() {
-  const [contract, setContract] = useState<ethers.Contract | undefined>(
-    undefined,
-  );
-  const [address, setAddress] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [bio, setBio] = useState<string>("");
   const [profileImageURL, setProfileImageURL] = useState<string>("");
@@ -49,7 +43,6 @@ function App() {
   const [likes, setLikes] = useState<Map<number, number>>(new Map());
   const [likedCarvings, setLikedCarvings] = useState<Set<number>>(new Set());
   const [isLoadingCarvings, setIsLoadingCarvings] = useState<boolean>(false);
-  const [loadingAddress, setLoadingAddress] = useState(true);
 
   // Comments (Etchings) Modal
   const [showCommentsModal, setShowCommentsModal] = useState<boolean>(false);
@@ -59,7 +52,8 @@ function App() {
 
   const MAX_LENGTH = 140;
 
-  const { fetchProfile, getProfile } = useUserProfile(contract, address);
+  const { contract, address, loadingAddress, connectWallet } = useWallet();
+  const { fetchProfile, getProfile } = useUserProfile();
 
   const sortedCarvings = useMemo(() => {
     return carvings.slice().sort((a, b) => b.sentAt - a.sentAt);
@@ -221,63 +215,6 @@ function App() {
     // ]);
     setNewComment("");
   }, [newComment, selectedCarving, contract, address]);
-
-  const connectWallet = useCallback(async () => {
-    if (window.ethereum) {
-      let provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-
-      let network = await provider.getNetwork();
-      const expectedChainId = CHAIN_ID;
-      if (Number(network.chainId) !== expectedChainId) {
-        try {
-          await provider.send("wallet_switchEthereumChain", [
-            { chainId: ethers.toQuantity(expectedChainId) },
-          ]);
-        } catch (switchError) {
-          alert(
-            "Please switch to the Somnia chain in your wallet to use carve.",
-          );
-          console.error("Failed to switch network", switchError);
-          return;
-        }
-      }
-      provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
-
-      const contractWithSigner = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        carve.abi,
-        signer,
-      );
-      setContract(contractWithSigner);
-      setAddress(address);
-      setLoadingAddress(false);
-    } else {
-      alert("Please install MetaMask!");
-    }
-  }, []);
-
-  useEffect(() => {
-    async function init() {
-      if (contract) return;
-      const tempProvider = new ethers.JsonRpcProvider(RPC_URL);
-      const tempContract = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        carve.abi,
-        tempProvider,
-      );
-      setContract(tempContract);
-    }
-    void init();
-  }, [contract]);
-
-  useEffect(() => {
-    void connectWallet();
-  }, [connectWallet]);
 
   useEffect(() => {
     async function internal() {

@@ -3,6 +3,7 @@
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import React from "react";
 import useTheme from "@/hooks/useTheme";
+import WalletProvider from "@/context/WalletProvider";
 
 export default function RootLayout({
   children,
@@ -14,7 +15,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider theme={useTheme()}>
           <CssBaseline />
-          {children}
+          <WalletProvider>{children}</WalletProvider>
         </ThemeProvider>
       </body>
     </html>
