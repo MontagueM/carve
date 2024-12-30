@@ -177,7 +177,8 @@ function App() {
     [contract, fetchLikes],
   );
 
-  const fetchCommentsForCarving = useCallback(async (_carvingId: number) => {
+  const fetchCommentsForCarving = useCallback(async (carvingId: number) => {
+    console.log("fetchCommentsForCarving", carvingId);
     return [];
   }, []);
 
@@ -229,7 +230,7 @@ function App() {
       }
     }
     void internal();
-  }, [address]);
+  }, [address, fetchProfile, fetchMessages]);
 
   if (loadingAddress) {
     return (

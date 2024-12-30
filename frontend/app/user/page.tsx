@@ -74,7 +74,7 @@ export default function ProfilePage() {
       0,
       carvingCount,
     );
-    const userCarvings: Carving[] = userCarvingsResult.map((c: any) => {
+    const userCarvings: Carving[] = userCarvingsResult.map((c: never) => {
       return {
         id: Number(c[0]),
         originalCarvingId: Number(c[1]),
@@ -103,7 +103,7 @@ export default function ProfilePage() {
 
     setCarvings(userCarvings);
     setIsLoadingCarvings(false);
-  }, [contract, address, fetchProfile, userAddress]);
+  }, [contract, address, userAddress]);
 
   const isMyProfile = useMemo(() => {
     return (
