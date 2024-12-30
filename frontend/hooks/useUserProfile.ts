@@ -15,7 +15,7 @@ function useUserProfile() {
 
   const fetchProfile = useCallback(
     async (address: string) => {
-      if (!contract) {
+      if (!contract || address == "") {
         return undefined;
       }
 

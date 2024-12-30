@@ -1,7 +1,7 @@
 "use client";
 
 import { CssBaseline, ThemeProvider } from "@mui/material";
-import React from "react";
+import React, { Suspense } from "react";
 import useTheme from "@/hooks/useTheme";
 import WalletProvider from "@/context/WalletProvider";
 
@@ -15,7 +15,9 @@ export default function RootLayout({
       <body>
         <ThemeProvider theme={useTheme()}>
           <CssBaseline />
-          <WalletProvider>{children}</WalletProvider>
+          <WalletProvider>
+            <Suspense>{children}</Suspense>
+          </WalletProvider>
         </ThemeProvider>
       </body>
     </html>
