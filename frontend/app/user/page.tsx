@@ -54,10 +54,7 @@ export default function ProfilePage() {
   const [editBio, setEditBio] = useState<string>("");
   const [editPfpURL, setEditPfpURL] = useState<string>("");
 
-  const { fetchProfile, getProfile, profile } = useUserProfile(
-    contract,
-    address,
-  );
+  const { fetchProfile, getProfile, profile } = useUserProfile();
 
   const connectWallet = useCallback(async () => {
     if ((window as any).ethereum) {
