@@ -26,12 +26,13 @@ import {
   Person,
 } from "@mui/icons-material";
 import carve from "../contracts/carve.json";
-import { CHAIN_ID, CONTRACT_ADDRESS, RPC_URL } from "../config";
+import { CONTRACT_ADDRESS, RPC_URL } from "../config";
 import Link from "next/link";
 import Skeleton from "@mui/material/Skeleton";
 import useUserProfile from "@/hooks/useUserProfile";
 import { useSearchParams } from "next/navigation";
 import { Carving, CarvingType } from "@/types";
+import { useWallet } from "@/context/WalletProvider";
 
 export default function ProfilePage() {
   const searchParams = useSearchParams();
@@ -40,7 +41,6 @@ export default function ProfilePage() {
   const [contract, setContract] = useState<ethers.Contract | undefined>(
     undefined,
   );
-  const [account, setAccount] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [bio, setBio] = useState<string>("");
   const [profileImageURL, setProfileImageURL] = useState<string>("");
@@ -54,42 +54,8 @@ export default function ProfilePage() {
   const [editBio, setEditBio] = useState<string>("");
   const [editPfpURL, setEditPfpURL] = useState<string>("");
 
+  const { address: userAddress } = useWallet();
   const { fetchProfile, getProfile, profile } = useUserProfile();
-
-  const connectWallet = useCallback(async () => {
-    if ((window as any).ethereum) {
-      let provider = new ethers.BrowserProvider((window as any).ethereum);
-      await provider.send("eth_requestAccounts", []);
-      let network = await provider.getNetwork();
-      const expectedChainId = CHAIN_ID;
-      if (Number(network.chainId) !== expectedChainId) {
-        try {
-          await provider.send("wallet_switchEthereumChain", [
-            { chainId: ethers.toQuantity(expectedChainId) },
-          ]);
-        } catch (switchError) {
-          alert(
-            "Please switch to the Somnia chain in your wallet to use carve.",
-          );
-          console.error("Failed to switch network", switchError);
-          return;
-        }
-      }
-      provider = new ethers.BrowserProvider((window as any).ethereum);
-      await provider.send("eth_requestAccounts", []);
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
-      const contractWithSigner = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        carve.abi,
-        signer,
-      );
-      setContract(contractWithSigner);
-      setAccount(address);
-    } else {
-      alert("Please install MetaMask!");
-    }
-  }, []);
 
   const fetchUserCarvings = useCallback(async () => {
     if (!contract || !address) {
@@ -126,8 +92,8 @@ export default function ProfilePage() {
         console.log(c);
         const count = await contract.getLikesCount(c.id);
         setLikes((prev) => new Map(prev).set(c.id, Number(count)));
-        if (account) {
-          const liked = await contract.hasLikedCarving(account, c.id);
+        if (userAddress) {
+          const liked = await contract.hasLikedCarving(userAddress, c.id);
           if (liked) {
             setLikedCarvings((prev) => new Set(prev).add(c.id));
           }
@@ -137,13 +103,15 @@ export default function ProfilePage() {
 
     setCarvings(userCarvings);
     setIsLoadingCarvings(false);
-  }, [contract, address, fetchProfile, account]);
+  }, [contract, address, fetchProfile, userAddress]);
 
   const isMyProfile = useMemo(() => {
     return (
-      account && address && account.toLowerCase() === address.toLowerCase()
+      userAddress &&
+      address &&
+      userAddress.toLowerCase() === address.toLowerCase()
     );
-  }, [account, address]);
+  }, [userAddress, address]);
 
   const updateUsername = useCallback(async () => {
     if (!contract || !editUsername) return;
@@ -203,10 +171,6 @@ export default function ProfilePage() {
     }
     void init();
   }, [contract]);
-
-  useEffect(() => {
-    void connectWallet();
-  }, [connectWallet]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -282,8 +246,10 @@ export default function ProfilePage() {
                   label="New Username"
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
-                  InputProps={{ style: { color: "#fff" } }}
-                  InputLabelProps={{ style: { color: "#8899A6" } }}
+                  slotProps={{
+                    input: { style: { color: "#fff" } },
+                    inputLabel: { style: { color: "#8899A6" } },
+                  }}
                 />
                 <Button
                   variant="contained"
@@ -297,8 +263,10 @@ export default function ProfilePage() {
                   label="New Bio"
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
-                  InputProps={{ style: { color: "#fff" } }}
-                  InputLabelProps={{ style: { color: "#8899A6" } }}
+                  slotProps={{
+                    input: { style: { color: "#fff", borderColor: "#253341" } },
+                    inputLabel: { style: { color: "#8899A6" } },
+                  }}
                 />
                 <Button
                   variant="contained"
@@ -312,8 +280,10 @@ export default function ProfilePage() {
                   label="New PFP URL"
                   value={editPfpURL}
                   onChange={(e) => setEditPfpURL(e.target.value)}
-                  InputProps={{ style: { color: "#fff" } }}
-                  InputLabelProps={{ style: { color: "#8899A6" } }}
+                  slotProps={{
+                    input: { style: { color: "#fff", borderColor: "#253341" } },
+                    inputLabel: { style: { color: "#8899A6" } },
+                  }}
                 />
                 <Button
                   variant="contained"

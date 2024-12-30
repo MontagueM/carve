@@ -33,7 +33,6 @@ import { useWallet } from "@/context/WalletProvider";
 function App() {
   const [username, setUsername] = useState<string>("");
   const [bio, setBio] = useState<string>("");
-  const [profileImageURL, setProfileImageURL] = useState<string>("");
   const [message, setMessage] = useState<string>("");
   const [carvings, setCarvings] = useState<Carving[]>([]);
   const [showSetUsernameEntry, setShowSetUsernameEntry] =
@@ -53,7 +52,7 @@ function App() {
   const MAX_LENGTH = 140;
 
   const { contract, address, loadingAddress, connectWallet } = useWallet();
-  const { fetchProfile, getProfile } = useUserProfile();
+  const { fetchProfile, getProfile, profile } = useUserProfile();
 
   const sortedCarvings = useMemo(() => {
     return carvings.slice().sort((a, b) => b.sentAt - a.sentAt);
@@ -100,7 +99,7 @@ function App() {
     }
 
     const carvingsResult = await contract.getCarvings(0, Number(count));
-    const allCarvings: Carving[] = carvingsResult.map((c: any) => {
+    const allCarvings: Carving[] = carvingsResult.map((c: never) => {
       return {
         id: Number(c[0]),
         originalCarvingId: Number(c[1]),
@@ -151,7 +150,7 @@ function App() {
     if (!message || !contract) return;
     await contract.createCarving(message);
     setMessage("");
-    fetchMessages();
+    void fetchMessages();
   }, [contract, message, fetchMessages]);
 
   const likeCarving = useCallback(
@@ -159,7 +158,7 @@ function App() {
       if (!contract) return;
       await contract.likeCarving(carvingId);
       setLikedCarvings((prev) => new Set(prev).add(carvingId));
-      fetchLikes(carvingId);
+      void fetchLikes(carvingId);
     },
     [contract, fetchLikes],
   );
@@ -178,7 +177,7 @@ function App() {
     [contract, fetchLikes],
   );
 
-  const fetchCommentsForCarving = useCallback(async (carvingId: number) => {
+  const fetchCommentsForCarving = useCallback(async (_carvingId: number) => {
     return [];
   }, []);
 
@@ -214,7 +213,7 @@ function App() {
     //   },
     // ]);
     setNewComment("");
-  }, [newComment, selectedCarving, contract, address]);
+  }, [newComment, selectedCarving, contract]);
 
   useEffect(() => {
     async function internal() {
@@ -291,8 +290,10 @@ function App() {
           onChange={(e) => setUsernameInput(e.target.value)}
           fullWidth
           margin="normal"
-          InputLabelProps={{ style: { color: "#8899A6" } }}
-          InputProps={{ style: { color: "#fff" } }}
+          slotProps={{
+            input: { style: { color: "#fff", borderColor: "#253341" } },
+            inputLabel: { style: { color: "#8899A6" } },
+          }}
         />
         <Button
           variant="contained"
@@ -345,8 +346,8 @@ function App() {
               marginBottom: "1rem",
             }}
           >
-            <Avatar src={profileImageURL || ""}>
-              {!profileImageURL && <Person />}
+            <Avatar src={profile?.pfpURL || ""}>
+              {!profile?.pfpURL && <Person />}
             </Avatar>
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="h6">
@@ -360,7 +361,7 @@ function App() {
 
           <Paper sx={{ padding: "1rem", marginBottom: "1rem" }} elevation={0}>
             <Box sx={{ display: "flex", gap: 2 }}>
-              <Avatar src={profileImageURL || ""} />
+              <Avatar src={profile?.pfpURL || ""} />
               <TextField
                 variant="outlined"
                 fullWidth
@@ -368,8 +369,8 @@ function App() {
                 placeholder="What's happening?"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                InputProps={{
-                  style: { color: "#fff", borderColor: "#253341" },
+                slotProps={{
+                  input: { style: { color: "#fff", borderColor: "#253341" } },
                 }}
                 sx={{ input: { color: "#fff" }, textarea: { color: "#fff" } }}
               />
@@ -432,7 +433,7 @@ function App() {
                 >
                   <ListItem alignItems="flex-start" disableGutters>
                     <ListItemAvatar>
-                      <Avatar src={profileImageURL || ""} />
+                      <Avatar src={profile?.pfpURL || ""} />
                     </ListItemAvatar>
                     <ListItemText
                       primary={
@@ -558,7 +559,7 @@ function App() {
                 variant="h6"
                 sx={{ fontWeight: "bold", color: "#fff" }}
               >
-                Etchings on "{selectedCarving.message}"
+                Etchings on &quot;{selectedCarving.message}&quot;
               </Typography>
               <Box
                 sx={{
@@ -606,7 +607,7 @@ function App() {
                 )}
               </Box>
               <Box sx={{ display: "flex", gap: 2 }}>
-                <Avatar src={profileImageURL || ""} />
+                <Avatar src={profile?.pfpURL || ""} />
                 <TextField
                   variant="outlined"
                   fullWidth
@@ -614,8 +615,8 @@ function App() {
                   placeholder="Etch your reply"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  InputProps={{
-                    style: { color: "#fff", borderColor: "#253341" },
+                  slotProps={{
+                    input: { style: { color: "#fff", borderColor: "#253341" } },
                   }}
                 />
               </Box>
