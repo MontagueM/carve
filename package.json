@@ -14,6 +14,7 @@
     "keytar": "^7.9.0"
   },
   "scripts": {
+    "ci:build": "cd frontend && npm ci && npm run build",
     "frontend:dev:local": "cd frontend && cross-env NEXT_PUBLIC_ENV=dev npm run dev",
     "frontend:dev:somnia": "cd frontend && cross-env NEXT_PUBLIC_ENV=somnia npm run dev",
     "bc:start:node": "npx hardhat node",
