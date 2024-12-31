@@ -39,7 +39,7 @@ function CarvingItem({ carving }: CarvingProps) {
       const liked = await contract.hasLikedCarving(address, carvingId);
       setLiked(liked);
     },
-    [contract],
+    [contract, address],
   );
 
   const likeCarving = useCallback(

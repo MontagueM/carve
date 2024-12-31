@@ -35,7 +35,7 @@ function App() {
 
   const profile = useMemo(() => {
     return getProfile(address);
-  }, [address, fetchProfile]);
+  }, [address, getProfile]);
 
   const createAddress = useCallback(
     async (usernameInput: string) => {
@@ -51,7 +51,7 @@ function App() {
         return false;
       }
     },
-    [contract],
+    [contract, address, fetchProfile, fetchCarvings],
   );
 
   const postNewCarving = useCallback(async () => {

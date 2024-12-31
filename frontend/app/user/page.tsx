@@ -129,21 +129,21 @@ export default function ProfilePage() {
     await contract.setUsername(editUsername);
     void fetchProfile(address, true);
     setEditUsername("");
-  }, [contract, editUsername, fetchProfile]);
+  }, [contract, editUsername, fetchProfile, address]);
 
   const updateBio = useCallback(async () => {
     if (!contract) return;
     await contract.setBio(editBio);
     void fetchProfile(address, true);
     setEditBio("");
-  }, [contract, editBio, fetchProfile]);
+  }, [contract, editBio, fetchProfile, address]);
 
   const updatePfp = useCallback(async () => {
     if (!contract) return;
     await contract.setPfpURL(editPfpURL);
     void fetchProfile(address, true);
     setEditPfpURL("");
-  }, [contract, editPfpURL, fetchProfile]);
+  }, [contract, editPfpURL, fetchProfile, address]);
 
   const likeCarving = useCallback(
     async (carvingId: number) => {

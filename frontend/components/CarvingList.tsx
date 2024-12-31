@@ -1,6 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { useWallet } from "@/context/WalletProvider";
-import { Carving, CarvingType } from "@/types";
+import React, { useMemo } from "react";
 import { Box, List, Paper, Skeleton } from "@mui/material";
 import CarvingItem from "@/components/CarvingItem";
 import { useContractState } from "@/context/ContractStateProvider";
