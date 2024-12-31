@@ -18,7 +18,7 @@
     "frontend:dev:somnia": "cd frontend && cross-env NEXT_PUBLIC_ENV=somnia npm run dev",
     "bc:start:node": "npx hardhat node",
     "bc:deploy:contract:local": "rm -rf ignition/deployments && npm run bc:compile && npx hardhat ignition deploy ignition/modules/carve.ts --network localhost",
-    "bc:deploy:contract:somnia": "rm -rf ignition/deployments && npm run bc:compile && npx hardhat ignition deploy ignition/modules/carve.ts --network somnia",
+    "bc:deploy:contract:somnia": "rm -rf ignition/deployments && npm run bc:compile && hardhat run scripts/deploy.ts",
     "bc:compile": "npx hardhat compile && cp artifacts/contracts/carve.sol/carve.json frontend/app/contracts/"
   }
 }

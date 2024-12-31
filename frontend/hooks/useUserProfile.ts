@@ -14,12 +14,12 @@ function useUserProfile() {
   const { contract, address: userAddress } = useWallet();
 
   const fetchProfile = useCallback(
-    async (address: string) => {
+    async (address: string, force: boolean = false) => {
       if (!contract || address == "") {
         return undefined;
       }
 
-      if (profiles.current.has(address)) {
+      if (!force && profiles.current.has(address)) {
         return profiles.current.get(address);
       }
 
@@ -36,19 +36,25 @@ function useUserProfile() {
       }
 
       profiles.current.set(address, profile);
+      console.log(profiles.current);
 
       return profile;
     },
-    [contract],
+    [contract, profiles.current],
   );
 
-  const getProfile = useCallback((address: string) => {
-    return profiles.current.get(address);
-  }, []);
+  const getProfile = useCallback(
+    (address: string) => {
+      console.log("getProfile", address, profiles.current);
+      return profiles.current.get(address);
+    },
+    [profiles.current],
+  );
 
   useEffect(() => {
+    console.log("fetchProfile");
     void fetchProfile(userAddress);
-  }, [userAddress]);
+  }, [userAddress, fetchProfile]);
 
   return { fetchProfile, getProfile, profile: getProfile(userAddress) };
 }

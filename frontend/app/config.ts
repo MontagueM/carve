@@ -9,7 +9,7 @@ export const Dev = {
 export const Somnia = {
   RPC_URL: "https://dream-rpc.somnia.network/",
   CHAIN_ID: 50311,
-  CONTRACT_ADDRESS: "0x95c4e23D6635a8B1E858d25516646AEf176BFe7a",
+  CONTRACT_ADDRESS: "0xA7eD312d3585919BE7DbD6b3c50809cE5F68FC75",
 };
 
 export const RPC_URL = ENV === "dev" ? Dev.RPC_URL : Somnia.RPC_URL;

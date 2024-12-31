@@ -11,7 +11,6 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  Modal,
   Box,
   IconButton,
   Paper,
@@ -23,7 +22,6 @@ import {
   Repeat,
   FavoriteBorder,
   Favorite,
-  Person,
 } from "@mui/icons-material";
 import Link from "next/link";
 import useUserProfile from "@/hooks/useUserProfile";
@@ -31,8 +29,6 @@ import { Carving, CarvingType } from "@/types";
 import { useWallet } from "@/context/WalletProvider";
 
 function App() {
-  const [username, setUsername] = useState<string>("");
-  const [bio, setBio] = useState<string>("");
   const [message, setMessage] = useState<string>("");
   const [carvings, setCarvings] = useState<Carving[]>([]);
   const [showSetUsernameEntry, setShowSetUsernameEntry] =
@@ -42,12 +38,6 @@ function App() {
   const [likes, setLikes] = useState<Map<number, number>>(new Map());
   const [likedCarvings, setLikedCarvings] = useState<Set<number>>(new Set());
   const [isLoadingCarvings, setIsLoadingCarvings] = useState<boolean>(false);
-
-  // Comments (Etchings) Modal
-  const [showCommentsModal, setShowCommentsModal] = useState<boolean>(false);
-  const [selectedCarving, setSelectedCarving] = useState<Carving | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState<string>("");
 
   const MAX_LENGTH = 140;
 
@@ -61,10 +51,6 @@ function App() {
   const remainingCharsForMessage = useMemo(
     () => MAX_LENGTH - message.length,
     [message],
-  );
-  const remainingCharsForComment = useMemo(
-    () => MAX_LENGTH - newComment.length,
-    [newComment],
   );
 
   const fetchLikes = useCallback(
@@ -115,7 +101,9 @@ function App() {
     const uniqueAddresses = new Set(allCarvings.map((c) => c.carver));
 
     // together await all user profiles and carving likes/like status
-    const userProfilePromises = Array.from(uniqueAddresses).map(fetchProfile);
+    const userProfilePromises = Array.from(uniqueAddresses).map((address) =>
+      fetchProfile(address),
+    );
     const likesPromises = allCarvings.map((c) => fetchLikes(c.id));
     const likedStatusPromises = allCarvings.map((c) => fetchLikedStatus(c.id));
     await Promise.all([
@@ -132,10 +120,8 @@ function App() {
     async (usernameInput: string) => {
       if (!contract) return false;
       try {
-        console.log("presetUsername", usernameInput);
         await contract.setUsername(usernameInput);
-        console.log("setUsername", usernameInput);
-        setUsername(usernameInput);
+        await fetchProfile(address, true);
         return true;
       } catch (error) {
         alert("An error occurred while creating the address.");
@@ -177,55 +163,13 @@ function App() {
     [contract, fetchLikes],
   );
 
-  const fetchCommentsForCarving = useCallback(async (carvingId: number) => {
-    console.log("fetchCommentsForCarving", carvingId);
-    return [];
-  }, []);
-
-  const openCommentsModal = useCallback(
-    async (carving: Carving) => {
-      setSelectedCarving(carving);
-      const fetchedComments = await fetchCommentsForCarving(carving.id);
-      setComments(fetchedComments);
-      setShowCommentsModal(true);
-    },
-    [fetchCommentsForCarving],
-  );
-
-  const closeCommentsModal = useCallback(() => {
-    setShowCommentsModal(false);
-    setSelectedCarving(null);
-    setComments([]);
-    setNewComment("");
-  }, []);
-
-  const postComment = useCallback(async () => {
-    if (!newComment || !selectedCarving || !contract) return;
-    if (newComment.length > MAX_LENGTH) {
-      alert(`Your etch exceeds the ${MAX_LENGTH}-character limit.`);
-      return;
-    }
-    // setComments((prev) => [
-    //   ...prev,
-    //   {
-    //     message: newComment,
-    //     address: address,
-    //     timestamp: new Date().getTime(),
-    //   },
-    // ]);
-    setNewComment("");
-  }, [newComment, selectedCarving, contract]);
-
   useEffect(() => {
     async function internal() {
       if (!address) return;
       const userProfile = await fetchProfile(address);
-      console.log("userProfile", userProfile);
       if (!userProfile) {
         setShowSetUsernameEntry(true);
       } else {
-        setUsername(userProfile.username);
-        setBio(userProfile.bio);
         void fetchMessages();
       }
     }
@@ -316,15 +260,7 @@ function App() {
   }
 
   return (
-    <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
-      <Typography
-        variant="h4"
-        gutterBottom
-        style={{ fontWeight: "bold", color: "#fff", textAlign: "center" }}
-      >
-        carve
-      </Typography>
-
+    <>
       {!address ? (
         <Box
           sx={{
@@ -339,27 +275,6 @@ function App() {
         </Box>
       ) : (
         <>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-              marginBottom: "1rem",
-            }}
-          >
-            <Avatar src={profile?.pfpURL || ""}>
-              {!profile?.pfpURL && <Person />}
-            </Avatar>
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6">
-                {username || address.slice(0, 6) + "..." + address.slice(-4)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {bio}
-              </Typography>
-            </Box>
-          </Box>
-
           <Paper sx={{ padding: "1rem", marginBottom: "1rem" }} elevation={0}>
             <Box sx={{ display: "flex", gap: 2 }}>
               <Avatar src={profile?.pfpURL || ""} />
@@ -398,7 +313,7 @@ function App() {
                 onClick={postNewMessage}
                 disabled={remainingCharsForMessage < 0}
               >
-                Carve
+                carve
               </Button>
             </Box>
           </Paper>
@@ -491,7 +406,7 @@ function App() {
                   >
                     <IconButton
                       color="secondary"
-                      onClick={() => openCommentsModal(carving)}
+                      onClick={() => alert("Etch feature not implemented yet")}
                     >
                       <ChatBubbleOutline fontSize="small" />
                     </IconButton>
@@ -535,120 +450,7 @@ function App() {
           )}
         </>
       )}
-
-      <Modal open={showCommentsModal} onClose={closeCommentsModal}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 1,
-            width: "100%",
-            maxWidth: "600px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-          }}
-        >
-          {selectedCarving && (
-            <>
-              <Typography
-                variant="h6"
-                sx={{ fontWeight: "bold", color: "#fff" }}
-              >
-                Etchings on &quot;{selectedCarving.message}&quot;
-              </Typography>
-              <Box
-                sx={{
-                  overflowY: "auto",
-                  maxHeight: "300px",
-                  border: "1px solid #253341",
-                  borderRadius: 1,
-                  padding: "1rem",
-                }}
-              >
-                {comments.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No etchings yet. Be the first to etch!
-                  </Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Comments will appear here.
-                  </Typography>
-                  // comments.map((c, i) => (
-                  //   <Box key={i} sx={{ marginBottom: "1rem" }}>
-                  //     <Box
-                  //       sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                  //     >
-                  //       <Avatar />
-                  //       <Typography
-                  //         variant="body1"
-                  //         sx={{ fontWeight: "bold", color: "#fff" }}
-                  //       >
-                  //         {getProfile(c.address)?.username ||
-                  //           c.address.slice(0, 6) + "..." + c.address.slice(-4)}
-                  //       </Typography>
-                  //       <Typography variant="caption" color="text.secondary">
-                  //         • {new Date(c.timestamp).toLocaleString()}
-                  //       </Typography>
-                  //     </Box>
-                  //     <Typography
-                  //       variant="body2"
-                  //       color="text.primary"
-                  //       sx={{ marginLeft: "3rem", marginTop: "0.5rem" }}
-                  //     >
-                  //       {c.message}
-                  //     </Typography>
-                  //   </Box>
-                  // ))
-                )}
-              </Box>
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <Avatar src={profile?.pfpURL || ""} />
-                <TextField
-                  variant="outlined"
-                  fullWidth
-                  multiline
-                  placeholder="Etch your reply"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  slotProps={{
-                    input: { style: { color: "#fff", borderColor: "#253341" } },
-                  }}
-                />
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: remainingCharsForComment < 0 ? "red" : "#8899A6",
-                  }}
-                >
-                  {remainingCharsForComment}
-                </Typography>
-                <Button
-                  variant="contained"
-                  sx={{ textTransform: "none" }}
-                  onClick={postComment}
-                >
-                  Etch
-                </Button>
-              </Box>
-            </>
-          )}
-        </Box>
-      </Modal>
-    </Container>
+    </>
   );
 }
 

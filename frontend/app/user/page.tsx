@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { ethers } from "ethers";
 import {
   Container,
   Typography,
@@ -25,8 +24,6 @@ import {
   ChatBubbleOutline,
   Person,
 } from "@mui/icons-material";
-import carve from "../contracts/carve.json";
-import { CONTRACT_ADDRESS, RPC_URL } from "../config";
 import Link from "next/link";
 import Skeleton from "@mui/material/Skeleton";
 import useUserProfile from "@/hooks/useUserProfile";
@@ -38,12 +35,6 @@ export default function ProfilePage() {
   const searchParams = useSearchParams();
   const address = searchParams.get("address") ?? "";
 
-  const [contract, setContract] = useState<ethers.Contract | undefined>(
-    undefined,
-  );
-  const [username, setUsername] = useState<string>("");
-  const [bio, setBio] = useState<string>("");
-  const [profileImageURL, setProfileImageURL] = useState<string>("");
   const [carvings, setCarvings] = useState<Carving[]>([]);
   const [tab, setTab] = useState<number>(0);
   const [likes, setLikes] = useState<Map<number, number>>(new Map());
@@ -54,8 +45,24 @@ export default function ProfilePage() {
   const [editBio, setEditBio] = useState<string>("");
   const [editPfpURL, setEditPfpURL] = useState<string>("");
 
-  const { address: userAddress } = useWallet();
-  const { fetchProfile, getProfile, profile } = useUserProfile();
+  const { contract, address: userAddress } = useWallet();
+  const { fetchProfile, getProfile } = useUserProfile();
+
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
+
+  const profile = getProfile(address);
+
+  useEffect(() => {
+    async function internal() {
+      if (contract && address) {
+        setLoadingProfile(true);
+        await fetchProfile(address);
+        setLoadingProfile(false);
+      }
+    }
+
+    void internal();
+  }, [contract, address, fetchProfile]);
 
   const fetchUserCarvings = useCallback(async () => {
     if (!contract || !address) {
@@ -116,20 +123,23 @@ export default function ProfilePage() {
   const updateUsername = useCallback(async () => {
     if (!contract || !editUsername) return;
     await contract.setUsername(editUsername);
-    setUsername(editUsername);
-  }, [contract, editUsername]);
+    void fetchProfile(address, true);
+    setEditUsername("");
+  }, [contract, editUsername, fetchProfile]);
 
   const updateBio = useCallback(async () => {
     if (!contract) return;
     await contract.setBio(editBio);
-    setBio(editBio);
-  }, [contract, editBio]);
+    void fetchProfile(address, true);
+    setEditBio("");
+  }, [contract, editBio, fetchProfile]);
 
   const updatePfp = useCallback(async () => {
     if (!contract) return;
     await contract.setPfpURL(editPfpURL);
-    setProfileImageURL(editPfpURL);
-  }, [contract, editPfpURL]);
+    void fetchProfile(address, true);
+    setEditPfpURL("");
+  }, [contract, editPfpURL, fetchProfile]);
 
   const likeCarving = useCallback(
     async (carvingId: number) => {
@@ -158,34 +168,6 @@ export default function ProfilePage() {
   );
 
   useEffect(() => {
-    async function init() {
-      if (!contract) {
-        const tempProvider = new ethers.JsonRpcProvider(RPC_URL);
-        const tempContract = new ethers.Contract(
-          CONTRACT_ADDRESS,
-          carve.abi,
-          tempProvider,
-        );
-        setContract(tempContract);
-      }
-    }
-    void init();
-  }, [contract]);
-
-  useEffect(() => {
-    async function loadProfile() {
-      if (!contract || !address) return;
-      const profile = await fetchProfile(address);
-      if (profile) {
-        setUsername(profile.username);
-        setBio(profile.bio);
-        setProfileImageURL(profile.pfpURL);
-      }
-    }
-    void loadProfile();
-  }, [contract, address, fetchProfile]);
-
-  useEffect(() => {
     if (contract && address) {
       void fetchUserCarvings();
     }
@@ -195,7 +177,7 @@ export default function ProfilePage() {
     return carvings.slice().sort((a, b) => b.sentAt - a.sentAt);
   }, [carvings]);
 
-  if (!profile?.username) {
+  if (!profile?.username && !loadingProfile) {
     return (
       <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
         User does not exist.
@@ -204,10 +186,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
-      {(!contract || !address) && (
-        <Typography variant="h6">Loading...</Typography>
-      )}
+    <>
       {address && (
         <>
           <Box
@@ -218,15 +197,16 @@ export default function ProfilePage() {
               marginBottom: "1rem",
             }}
           >
-            <Avatar src={profileImageURL || ""}>
-              {!profileImageURL && <Person />}
+            <Avatar src={profile?.pfpURL || ""}>
+              {!profile?.pfpURL && <Person />}
             </Avatar>
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="h6">
-                {username || address.slice(0, 6) + "..." + address.slice(-4)}
+                {profile?.username ||
+                  address.slice(0, 6) + "..." + address.slice(-4)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {bio}
+                {profile?.bio}
               </Typography>
             </Box>
           </Box>
@@ -452,6 +432,6 @@ export default function ProfilePage() {
           )}
         </>
       )}
-    </Container>
+    </>
   );
 }
