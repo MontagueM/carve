@@ -24,6 +24,20 @@ contract carve {
         bool hidden;                 // a flag to mark if carving should not be displayed (soft delete)
         string message;              // empty for recarves
     }
+    
+    struct CarvingView {
+        CarvingId id;
+        CarvingId originalCarvingId;
+        uint256 sentAt;
+        uint256 likeCount;
+        uint256 recarveCount;
+        uint256 etchCount;
+        address carver;
+        CarvingType carvingType;
+        bool hidden;
+        bool likedByUser;
+        string message;
+    }
 
     // Store user profiles
     mapping(address => UserProfile) public userProfiles;
@@ -139,16 +153,25 @@ contract carve {
         string memory username,
         string memory bio,
         string memory pfpURL,
-        string memory backgroundURL
+        string memory backgroundURL,
+        uint256 followerCount,
+        uint256 followingCount,
+        uint256 carvingCount
     )
     {
         UserProfile memory profile = userProfiles[_user];
+        uint256 followerCount_ = _followers[_user].length;
+        uint256 followingCount_ = _followings[_user].length;
+        uint256 carvingCount_ = userCarvings[_user].length;
         return (
             profile.createdAt,
             profile.username,
             profile.bio,
             profile.pfpURL,
-            profile.backgroundURL
+            profile.backgroundURL,
+            followerCount_,
+            followingCount_,
+            carvingCount_
         );
     }
 
@@ -166,8 +189,27 @@ contract carve {
         return carvings.length;
     }
 
+    function getCarving(uint256 carvingIndex) public view returns (CarvingView memory)
+    {
+        require(carvingIndex < carvings.length, "Invalid carving ID");
+        CarvingView memory result;
+        result.id = carvings[carvingIndex].id;
+        result.originalCarvingId = carvings[carvingIndex].originalCarvingId;
+        result.sentAt = carvings[carvingIndex].sentAt;
+        result.carver = carvings[carvingIndex].carver;
+        result.carvingType = carvings[carvingIndex].carvingType;
+        result.hidden = carvings[carvingIndex].hidden;
+        result.message = carvings[carvingIndex].message;
+
+        result.likeCount = carvingLikeCounts[result.id];
+        result.recarveCount = carvingRecarveCounts[result.id];
+        result.etchCount = carvingEtches[result.id].length;
+        result.likedByUser = carvingLikedBy[result.id][msg.sender];
+        return result;
+    }
+    
     // Get a range of all carvings in the global feed
-    function getCarvings(uint256 start, uint256 count) public view returns (Carving[] memory)
+    function getCarvings(uint256 start, uint256 count) public view returns (CarvingView[] memory)
     {
         require(start < carvings.length, "Start index out of bounds");
         uint256 end = start + count;
@@ -175,15 +217,15 @@ contract carve {
             end = carvings.length;
         }
         uint256 length = end - start;
-        Carving[] memory result = new Carving[](length);
+        CarvingView[] memory result = new CarvingView[](length);
         for (uint256 i = 0; i < length; i++) {
-            result[i] = carvings[start + i];
+            result[i] = getCarving(start + i);
         }
         return result;
     }
 
     // Get a range of carvings created by a specific user
-    function getUserCarvings(address _user, uint256 start, uint256 count) public view returns (Carving[] memory)
+    function getUserCarvings(address _user, uint256 start, uint256 count) public view returns (CarvingView[] memory)
     {
         CarvingId[] memory userCarvingIds = userCarvings[_user];
         require(start < userCarvingIds.length, "Start index out of bounds");
@@ -192,11 +234,10 @@ contract carve {
             end = userCarvingIds.length;
         }
         uint256 length = end - start;
-        Carving[] memory result = new Carving[](length);
+        CarvingView[] memory result = new CarvingView[](length);
         for (uint256 i = 0; i < length; i++) {
-            // unwrap the CarvingId to use as array index
             uint256 carvingIndex = CarvingId.unwrap(userCarvingIds[start + i]);
-            result[i] = carvings[carvingIndex];
+            result[i] = getCarving(carvingIndex);
         }
         return result;
     }
@@ -275,7 +316,7 @@ contract carve {
         emit EtchAdded(newEtch.carver, newEtch.originalCarvingId, newEtch.id, newEtch.message);
     }
 
-    function getEtches(CarvingId _carvingId, uint256 start, uint256 count) public view returns (Carving[] memory)
+    function getEtches(CarvingId _carvingId, uint256 start, uint256 count) public view returns (CarvingView[] memory)
     {
         uint256 carvingIndex = CarvingId.unwrap(_carvingId);
         require(carvingIndex < carvings.length, "Invalid carving ID");
@@ -289,10 +330,10 @@ contract carve {
         }
         uint256 length = end - start;
 
-        Carving[] memory result = new Carving[](length);
+        CarvingView[] memory result = new CarvingView[](length);
         for (uint256 i = 0; i < length; i++) {
             uint256 etchIndex = CarvingId.unwrap(etchIds[start + i]);
-            result[i] = carvings[etchIndex];
+            result[i] = getCarving(etchIndex);
         }
         return result;
     }

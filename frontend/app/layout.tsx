@@ -5,6 +5,7 @@ import React, { Suspense } from "react";
 import useTheme from "@/hooks/useTheme";
 import WalletProvider from "@/context/WalletProvider";
 import Header from "@/components/Header";
+import ContractStateProvider from "@/context/ContractStateProvider";
 
 export default function RootLayout({
   children,
@@ -17,12 +18,14 @@ export default function RootLayout({
         <ThemeProvider theme={useTheme()}>
           <CssBaseline />
           <WalletProvider>
-            <Suspense>
-              <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
-                <Header />
-                {children}
-              </Container>
-            </Suspense>
+            <ContractStateProvider>
+              <Suspense>
+                <Container maxWidth="sm" style={{ paddingTop: "1rem" }}>
+                  <Header />
+                  {children}
+                </Container>
+              </Suspense>
+            </ContractStateProvider>
           </WalletProvider>
         </ThemeProvider>
       </body>

@@ -9,8 +9,12 @@ export type Carving = {
   id: number;
   originalCarvingId: number;
   sentAt: number;
+  likeCount: number;
+  recarveCount: number;
+  etchCount: number;
   carver: string;
   carvingType: CarvingType;
   hidden: boolean;
+  likedByUser: boolean;
   message: string;
 };

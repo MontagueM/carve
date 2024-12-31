@@ -26,10 +26,10 @@ import {
 } from "@mui/icons-material";
 import Link from "next/link";
 import Skeleton from "@mui/material/Skeleton";
-import useUserProfile from "@/hooks/useUserProfile";
 import { useSearchParams } from "next/navigation";
 import { Carving, CarvingType } from "@/types";
 import { useWallet } from "@/context/WalletProvider";
+import { useContractState } from "@/context/ContractStateProvider";
 
 export default function ProfilePage() {
   const searchParams = useSearchParams();
@@ -46,7 +46,7 @@ export default function ProfilePage() {
   const [editPfpURL, setEditPfpURL] = useState<string>("");
 
   const { contract, address: userAddress } = useWallet();
-  const { fetchProfile, getProfile } = useUserProfile();
+  const { fetchProfile, getProfile } = useContractState();
 
   const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
 
@@ -86,10 +86,14 @@ export default function ProfilePage() {
         id: Number(c[0]),
         originalCarvingId: Number(c[1]),
         sentAt: Number(c[2]) * 1000,
-        carver: c[3],
-        carvingType: Number(c[4]) as CarvingType,
-        hidden: c[5],
-        message: c[6],
+        likeCount: Number(c[3]),
+        recarveCount: Number(c[4]),
+        etchCount: Number(c[5]),
+        carver: c[6],
+        carvingType: Number(c[7]) as CarvingType,
+        hidden: c[8],
+        likedByUser: c[9],
+        message: c[10],
       };
     });
 
